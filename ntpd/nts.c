@@ -352,6 +352,19 @@ void ke_append_record_bytes(BufCtl* buf, uint16_t type, uint8_t *data, int lengt
 	append_bytes(buf, data, length);
 }
 
+#ifdef POOL_SOURCE
+void ke_append_record_uint16s(BufCtl* buf, uint16_t type, uint16_t *data, int length) {
+	if (NTS_KE_HDR_LNG+length*2 > buf->left)
+		return;
+	append_header(buf, type, length*2);
+
+	while (length > 0) {
+		append_uint16(buf, *data++);
+		length--;
+	}
+}
+#endif
+
 void ex_append_record_null(BufCtl* buf, uint16_t type) {
 	append_header(buf, type, NTS_KE_HDR_LNG);
 }

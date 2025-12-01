@@ -46,8 +46,12 @@ static SSL_CTX *server_ctx = NULL;
 static int listener4_sock = -1;
 static int listener6_sock = -1;
 
+#ifdef POOL_SOURCE
+static void nts_ke_pool_status_send(struct BufCtl_t *buf);
+#endif
+
 struct pool_query {
-	bool list_algo, list_proto, list_servers;
+	bool list;
 	struct BufCtl_t fixed_key;
 };
 
@@ -399,22 +403,41 @@ bool nts_ke_request(SSL *ssl) {
 
 	buf.next = buff;
 	buf.left = bytes_read;
-	if (!nts_ke_process_receive(&buf, &aead, NULL))
+#ifdef POOL_SOURCE
+	struct pool_query pool_data, *pool_req = &pool_data;
+	memset(&pool_data, 0, sizeof(pool_data));
+#else
+	struct pool_query *pool_req = NULL;
+#endif
+	/* FIXME: check the authentication status of the client and set pool_req to NULL 
+	 * if it is not an authorized pool source */
+
+	if (!nts_ke_process_receive(&buf, &aead, pool_req))
 		return false;
 
-	if ((NO_AEAD == aead) && (NULL != ntsconfig.aead))
-		aead = nts_string_to_aead(ntsconfig.aead);
-	if (NO_AEAD == aead)
-		aead = AEAD_AES_SIV_CMAC_256;    /* default */
+	if (pool_req && pool_req->list) {
+		buf.next = buff;
+		buf.left = sizeof(buff);
+		nts_ke_pool_status_send(&buf);
+	} else {
+		if ((NO_AEAD == aead) && (NULL != ntsconfig.aead))
+			aead = nts_string_to_aead(ntsconfig.aead);
+		if (NO_AEAD == aead)
+			aead = AEAD_AES_SIV_CMAC_256;    /* default */
 
-	keylen = nts_get_key_length(aead);
-	if (!nts_make_keys(ssl, aead, c2s, s2c, keylen))
-		return false;
+		keylen = nts_get_key_length(aead);
+		if (pool_req && pool_req->fixed_key.next) {
+			if (pool_req->fixed_key.left != keylen*2)
+				return false;
+			memcpy(c2s, pool_req->fixed_key.next, keylen);
+			memcpy(s2c, pool_req->fixed_key.next + keylen, keylen);
+		} else if (!nts_make_keys(ssl, aead, c2s, s2c, keylen))
+			return false;
 
-	buf.next = buff;
-	buf.left = sizeof(buff);
-	if (!nts_ke_setup_send(&buf, aead, c2s, s2c, keylen))
-		return false;
+		buf.next = buff;
+		buf.left = sizeof(buff);
+		nts_ke_setup_send(&buf, aead, c2s, s2c, keylen);
+	}
 
 	used = sizeof(buff)-buf.left;
 	bytes_written = nts_ssl_write(ssl, buff, used);
@@ -595,47 +618,27 @@ bool nts_ke_process_receive(struct BufCtl_t *buf, int *aead, struct pool_query *
 			if (!pool) {
 				goto unrecognized;
 			}
-			if (0 != length) {
-				msyslog(LOG_ERR, "NTSs: Pool-field with non-zero body size: %d", length);
-				return false;
-			}
 			msyslog(LOG_DEBUG, "NTSs: ignoring keep alive record");
 			break;
 		    case nts_supported_protocol:
 			if (!pool) {
 				goto unrecognized;
 			}
-			if ((0 != length) || !critical) {
-				msyslog(LOG_ERR, "NTSs: Pool-field with non-zero body size or not Critical: %d, %d",
-					length, critical);
-				return false;
-			}
-			pool->list_proto = true;
+			pool->list = true;
 			msyslog(LOG_DEBUG, "NTSs: got a request to list supported protocols");
 			break;
 		    case nts_supported_algorithm:
 			if (!pool) {
 				goto unrecognized;
 			}
-			if ((0 != length) || !critical) {
-				msyslog(LOG_ERR, "NTSs: Pool-field with non-zero body size or not Critical: %d, %d",
-					length, critical);
-				return false;
-			}
-			pool->list_algo = true;
+			pool->list = true;
 			msyslog(LOG_DEBUG, "NTSs: got a request to list supported algorithms");
 			break;
 		    case nts_list_server_names:
 			if (!pool) {
 				goto unrecognized;
 			}
-			if ((0 != length) || !critical) {
-				msyslog(LOG_ERR, "NTSs: Pool-field with non-zero body size or not Critical: %d, %d",
-					length, critical);
-				return false;
-			}
-			pool->list_servers = true;
-			msyslog(LOG_DEBUG, "NTSs: got a request to list servers");
+			msyslog(LOG_DEBUG, "NTSs: ignoring a request to list servers");
 			break;
 		    case nts_fixed_key_request:
 			if (!pool) {
@@ -699,5 +702,30 @@ bool nts_ke_setup_send(struct BufCtl_t *buf, int aead,
 	return true;
 
 }
+
+#ifdef POOL_SOURCE
+
+/* send a reply to any of the 'status query' pool extension fields, which will preclude an actual
+ * nts handshake; in keeping with the KISS style we don't carefully check what was requested.
+ * A client -- i.e. a Pool KE server -- should be able to handle the replies we give */
+void nts_ke_pool_status_send(struct BufCtl_t *buf) {
+
+	/* draft-RFC 6.2 Supported Next Protocol List */
+	ke_append_record_uint16(buf,
+				NTS_CRITICAL+nts_supported_protocol, nts_protocol_NTP);
+	/* draft-RFC 6.3 Supported Next Algorithm List */
+	uint16_t aead_list[] = {
+		AEAD_AES_SIV_CMAC_256, nts_get_key_length(AEAD_AES_SIV_CMAC_256),
+		AEAD_AES_SIV_CMAC_384, nts_get_key_length(AEAD_AES_SIV_CMAC_384),
+		AEAD_AES_SIV_CMAC_512, nts_get_key_length(AEAD_AES_SIV_CMAC_512),
+	};
+	ke_append_record_uint16s(buf,
+				NTS_CRITICAL+nts_supported_algorithm, aead_list, COUNTOF(aead_list));
+
+	/* 4.1.1: End, Critical */
+	ke_append_record_null(buf, NTS_CRITICAL+nts_end_of_message);
+}
+
+#endif
 
 /* end */
