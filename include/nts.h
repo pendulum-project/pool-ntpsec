@@ -50,7 +50,8 @@ struct BufCtl_t {
 typedef struct BufCtl_t BufCtl;
 
 /* Here for test routines */
-bool nts_ke_process_receive(struct BufCtl_t *buf, int *aead);
+struct pool_query;
+bool nts_ke_process_receive(struct BufCtl_t *buf, int *aead, struct pool_query *pool);
 
 /***********************************************************/
 
@@ -177,7 +178,15 @@ enum nts_record_type {
 	nts_algorithm_negotiation = 4,
 	nts_new_cookie = 5,
 	nts_server_negotiation = 6,
-	nts_port_negotiation = 7
+	nts_port_negotiation = 7,
+
+	/* NTS pool extension */
+	nts_keep_alive = 0x4000,
+	nts_supported_protocol = 0x4004, /* CRITICAL */
+	nts_supported_algorithm = 0x4001, /* CRITICAL */
+	nts_list_server_names = 0x4005, /* CRITICAL */
+	nts_fixed_key_request = 0x4002, /* CRITICAL */
+	nts_server_deny = 0x4003,
 };
 
 enum nts_protocol_type {
