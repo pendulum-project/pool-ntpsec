@@ -46,6 +46,11 @@ static SSL_CTX *server_ctx = NULL;
 static int listener4_sock = -1;
 static int listener6_sock = -1;
 
+struct pool_query {
+	bool list_algo, list_proto, list_servers;
+	struct BufCtl_t fixed_key;
+};
+
 /* We need a lock to protect reloading our certificate.
  * This seems like overkill, but it doesn't happen often. */
 pthread_mutex_t certificate_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -394,7 +399,7 @@ bool nts_ke_request(SSL *ssl) {
 
 	buf.next = buff;
 	buf.left = bytes_read;
-	if (!nts_ke_process_receive(&buf, &aead))
+	if (!nts_ke_process_receive(&buf, &aead, NULL))
 		return false;
 
 	if ((NO_AEAD == aead) && (NULL != ntsconfig.aead))
@@ -524,7 +529,7 @@ bool create_listener6(int port) {
 	return true;
 }
 
-bool nts_ke_process_receive(struct BufCtl_t *buf, int *aead) {
+bool nts_ke_process_receive(struct BufCtl_t *buf, int *aead, struct pool_query *pool) {
 	while (buf->left >= NTS_KE_HDR_LNG) {
 		uint16_t type, data;
 		int length;
@@ -585,7 +590,72 @@ bool nts_ke_process_receive(struct BufCtl_t *buf, int *aead) {
 				return false;
 			}
 			break;
+		    /* nts pool extensions */
+		    case nts_keep_alive:
+			if (!pool) {
+				goto unrecognized;
+			}
+			if (0 != length) {
+				msyslog(LOG_ERR, "NTSs: Pool-field with non-zero body size: %d", length);
+				return false;
+			}
+			msyslog(LOG_DEBUG, "NTSs: ignoring keep alive record");
+			break;
+		    case nts_supported_protocol:
+			if (!pool) {
+				goto unrecognized;
+			}
+			if ((0 != length) || !critical) {
+				msyslog(LOG_ERR, "NTSs: Pool-field with non-zero body size or not Critical: %d, %d",
+					length, critical);
+				return false;
+			}
+			pool->list_proto = true;
+			msyslog(LOG_DEBUG, "NTSs: got a request to list supported protocols");
+			break;
+		    case nts_supported_algorithm:
+			if (!pool) {
+				goto unrecognized;
+			}
+			if ((0 != length) || !critical) {
+				msyslog(LOG_ERR, "NTSs: Pool-field with non-zero body size or not Critical: %d, %d",
+					length, critical);
+				return false;
+			}
+			pool->list_algo = true;
+			msyslog(LOG_DEBUG, "NTSs: got a request to list supported algorithms");
+			break;
+		    case nts_list_server_names:
+			if (!pool) {
+				goto unrecognized;
+			}
+			if ((0 != length) || !critical) {
+				msyslog(LOG_ERR, "NTSs: Pool-field with non-zero body size or not Critical: %d, %d",
+					length, critical);
+				return false;
+			}
+			pool->list_servers = true;
+			msyslog(LOG_DEBUG, "NTSs: got a request to list servers");
+			break;
+		    case nts_fixed_key_request:
+			if (!pool) {
+				goto unrecognized;
+			}
+			if (!critical) {
+				msyslog(LOG_ERR, "NTSs: Pool-fixed key request not Critical: %d", critical);
+				return false;
+			}
+			pool->fixed_key.next = buf->next;
+			pool->fixed_key.left = length;
+			buf->next += length;
+			buf->left -= length;
+			msyslog(LOG_DEBUG, "NTSs: got a fixed key request");
+			break;
+		    case nts_server_deny:
+			msyslog(LOG_DEBUG, "NTSs: ignoring nts server deny request");
+			break;
 		    default:
+		    unrecognized:
 			msyslog(LOG_ERR, "NTSs: received strange type: T=%d, C=%d, L=%d",
 				type, critical, length);
 			if (critical) {

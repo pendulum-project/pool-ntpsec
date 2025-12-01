@@ -33,7 +33,7 @@ TEST(nts_server, nts_ke_process_receive) {
 	buf.left = sizeof(buf0);
 	aead = NO_AEAD;
 	/* test */
-	success = nts_ke_process_receive(&buf, &aead);
+	success = nts_ke_process_receive(&buf, &aead, NULL);
 	TEST_ASSERT_EQUAL(true, success);
 	TEST_ASSERT_EQUAL_INT(AEAD_AES_SIV_CMAC_256, aead);
 	/* ===== Test: nts_error ===== */
@@ -44,7 +44,7 @@ TEST(nts_server, nts_ke_process_receive) {
 	buf.next = buf1;
 	buf.left = sizeof(buf1);
 	/* test */
-	success = nts_ke_process_receive(&buf, &aead);
+	success = nts_ke_process_receive(&buf, &aead, NULL);
 	TEST_ASSERT_EQUAL(false, success);
 	/* ===== Test: nts_next_protocol_negotiation, bad length ===== */
 	uint8_t buf2[] = {
@@ -54,7 +54,7 @@ TEST(nts_server, nts_ke_process_receive) {
 	buf.next = buf2;
 	buf.left = sizeof(buf2);
 	/* test */
-	success = nts_ke_process_receive(&buf, &aead);
+	success = nts_ke_process_receive(&buf, &aead, NULL);
 	TEST_ASSERT_EQUAL(false, success);
 	/* ===== Test: nts_next_protocol_negotiation, bad protocol ===== */
 	uint8_t buf3[] = {
@@ -64,7 +64,7 @@ TEST(nts_server, nts_ke_process_receive) {
 	buf.next = buf3;
 	buf.left = sizeof(buf3);
 	/* test */
-	success = nts_ke_process_receive(&buf, &aead);
+	success = nts_ke_process_receive(&buf, &aead, NULL);
 	TEST_ASSERT_EQUAL(false, success);
 	/* ===== Test: nts_end_of_message, bad length ===== */
 	uint8_t buf4[] = {
@@ -73,7 +73,7 @@ TEST(nts_server, nts_ke_process_receive) {
 	buf.next = buf4;
 	buf.left = sizeof(buf4);
 	/* test */
-	success = nts_ke_process_receive(&buf, &aead);
+	success = nts_ke_process_receive(&buf, &aead, NULL);
 	TEST_ASSERT_EQUAL(false, success);
 	/* ===== Test: nts_end_of_message, bad critical ===== */
 	uint8_t buf5[] = {
@@ -82,7 +82,7 @@ TEST(nts_server, nts_ke_process_receive) {
 	buf.next = buf5;
 	buf.left = sizeof(buf5);
 	/* test */
-	success = nts_ke_process_receive(&buf, &aead);
+	success = nts_ke_process_receive(&buf, &aead, NULL);
 	TEST_ASSERT_EQUAL(false, success);
 	/* ===== Test: nts_end_of_message, remaining ===== */
 	uint8_t buf6[] = {
@@ -92,7 +92,7 @@ TEST(nts_server, nts_ke_process_receive) {
 	buf.next = buf6;
 	buf.left = sizeof(buf6);
 	/* test */
-	success = nts_ke_process_receive(&buf, &aead);
+	success = nts_ke_process_receive(&buf, &aead, NULL);
 	TEST_ASSERT_EQUAL(false, success);
 	/* ===== Test: default, bad critical ===== */
 	uint8_t buf7[] = {
@@ -101,7 +101,7 @@ TEST(nts_server, nts_ke_process_receive) {
 	buf.next = buf7;
 	buf.left = sizeof(buf7);
 	/* test */
-	success = nts_ke_process_receive(&buf, &aead);
+	success = nts_ke_process_receive(&buf, &aead, NULL);
 	TEST_ASSERT_EQUAL(false, success);
 }
 
