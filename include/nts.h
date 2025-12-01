@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#define POOL_SOURCE
+
 #ifndef GUARD_NTS_H
 #define GUARD_NTS_H
 
@@ -76,6 +78,9 @@ bool nts_ke_process_receive(struct BufCtl_t *buf, int *aead, struct pool_query *
 void ke_append_record_null(BufCtl* buf, uint16_t type);
 void ke_append_record_uint16(BufCtl* buf, uint16_t type, uint16_t data);
 void ke_append_record_bytes(BufCtl* buf, uint16_t type, uint8_t *data, int length);
+#ifdef POOL_SOURCE
+void ke_append_record_uint16s(BufCtl* buf, uint16_t type, uint16_t *data, int length);
+#endif
 
 void ex_append_record_null(BufCtl* buf, uint16_t type);
 void ex_append_record_uint16(BufCtl* buf, uint16_t type, uint16_t data);
