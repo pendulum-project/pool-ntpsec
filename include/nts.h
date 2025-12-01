@@ -192,6 +192,7 @@ enum nts_record_type {
 	nts_list_server_names = 0x4005, /* CRITICAL */
 	nts_fixed_key_request = 0x4002, /* CRITICAL */
 	nts_server_deny = 0x4003,
+	nts_auth_token = 0x4006,
 };
 
 enum nts_protocol_type {

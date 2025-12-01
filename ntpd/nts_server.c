@@ -50,11 +50,13 @@ static void nts_ke_setup_send(struct BufCtl_t *buf, int aead,
        uint8_t *c2s, uint8_t *s2c, int keylen);
 #ifdef POOL_SOURCE
 static void nts_ke_pool_status_send(struct BufCtl_t *buf);
+static bool nts_ke_pool_authenticated(struct BufCtl_t *auth_token);
 #endif
 
 struct pool_query {
 	bool list;
 	struct BufCtl_t fixed_key;
+	struct BufCtl_t auth_token;
 };
 
 /* We need a lock to protect reloading our certificate.
@@ -476,12 +478,20 @@ void nts_ke_request(SSL *ssl, const char **errtxt) {
 #else
 	struct pool_query *pool_req = NULL;
 #endif
-	/* FIXME: check the authentication status of the client and set pool_req to NULL 
-	 * if it is not an authorized pool source */
 
 	if (!nts_ke_process_receive(&buf, &aead, pool_req)) {
 		*errtxt = "xx";
 		return;
+	}
+
+	if (pool_req && !nts_ke_pool_authenticated(&pool_req->auth_token)) {
+		if (pool_req->list || pool_req->fixed_key.next) {
+			msyslog(LOG_DEBUG, "NTSs: Pool-ignoring attempt at inclusion in a pool");
+			/* treat the request as a unknown critical record */
+			*errtxt = "xx";
+			return;
+		}
+		pool_req = NULL;
 	}
 
 	if (pool_req && pool_req->list) {
@@ -733,6 +743,16 @@ bool nts_ke_process_receive(struct BufCtl_t *buf, int *aead, struct pool_query *
 		    case nts_server_deny:
 			msyslog(LOG_DEBUG, "NTSs: ignoring nts server deny request");
 			break;
+		    case nts_auth_token:
+			if (!pool) {
+				goto unrecognized;
+			}
+			pool->auth_token.next = buf->next;
+			pool->auth_token.left = length;
+			buf->next += length;
+			buf->left -= length;
+			msyslog(LOG_DEBUG, "NTSs: received auth token");
+			break;
 		    default:
 		    unrecognized:
 			msyslog(LOG_ERR, "NTSs: received strange type: T=%d, C=%d, L=%d",
@@ -800,6 +820,35 @@ void nts_ke_pool_status_send(struct BufCtl_t *buf) {
 	ke_append_record_null(buf, NTS_CRITICAL+nts_end_of_message);
 }
 
-#endif
+/* A constant time memcmp, so that we don't like timing information
+ * related to the authentication token; the only thing that can leak through
+ * a side channel is the length of the authentication token;
+ * taken from: https://github.com/squell/dunsel/blob/master/consttime/memcmp.c
+ * with permission. */
+static int memcmp_consttime(const void *s1, const void *s2, size_t n) {
+	unsigned const char *p1 = s1, *p2 = s2;
+	int r = 0;
+	while (n--) {
+		int delta = p1[n] - p2[n];
+		r = (r & ~-delta) | delta;
+	}
+	return r;
+}
 
-/* end */
+static bool nts_ke_pool_authenticated(struct BufCtl_t *auth_token) {
+	static const char *secret[] = { "Jeff" }; /* FIXME: read from the config */
+
+	if (!auth_token->next)
+		return false;
+
+	for (size_t i=0; i < COUNTOF(secret); i++) {
+		if ((size_t)auth_token->left == strlen(secret[i]) &&
+		   (0 == memcmp_consttime(secret[i], auth_token->next, auth_token->left)))
+			return true;
+	}
+
+	msyslog(LOG_INFO, "NTSs: Pool-invalid authentication");
+	return false;
+}
+
+#endif
