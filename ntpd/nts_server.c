@@ -23,6 +23,7 @@
 #include "ntp.h"
 #include "ntpd.h"
 #include "ntp_stdlib.h"
+#include "ntp_config.h"
 #include "nts.h"
 #include "nts2.h"
 #include "timespecops.h"
@@ -761,14 +762,13 @@ static int memcmp_consttime(const void *s1, const void *s2, size_t n) {
 }
 
 static bool nts_ke_pool_authenticated(struct BufCtl_t *auth_token) {
-	static const char *secret[] = { "Jeff" }; /* FIXME: read from the config */
-
 	if (!auth_token->next)
 		return false;
 
-	for (size_t i=0; i < COUNTOF(secret); i++) {
-		if ((size_t)auth_token->left == strlen(secret[i]) &&
-		   (0 == memcmp_consttime(secret[i], auth_token->next, auth_token->left)))
+        string_node *secret = ntsconfig.authtokens;
+	for ( ; secret; secret = secret->link) {
+		if ((size_t)auth_token->left == strlen(secret->s) &&
+		   (0 == memcmp_consttime(secret->s, auth_token->next, auth_token->left)))
 			return true;
 	}
 

@@ -209,6 +209,7 @@ struct key_tok ntp_keywords[] = {
 { "tlsciphersuites",	T_Tlsciphersuites,	FOLLBY_STRING },
 { "tlsecdhcurves",	T_Tlsecdhcurves,	FOLLBY_STRING },
 { "tlscipherserverpreference",	T_Tlscipherserverpreference,	FOLLBY_TOKEN },
+{ "poolauth",	        T_PoolAuthToken,	FOLLBY_STRING },
 };
 
 typedef struct big_scan_state_tag {

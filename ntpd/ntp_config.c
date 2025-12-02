@@ -30,6 +30,7 @@
 #include "ntp_assert.h"
 #include "ntp_dns.h"
 #include "ntp_auth.h"
+#include "ntp_config.h"
 
 /*
  * [Classic Bug 467]: Some linux headers collide with CONFIG_PHONE and
@@ -1937,6 +1938,54 @@ config_tinker(
 	}
 }
 
+static string_node*
+read_tokens_from_file(
+	const char *fname
+	)
+{
+	string_fifo tokens = { NULL };
+	unsigned num_tokens = 0;
+
+	char buf[256];
+
+	FILE *f = fopen(fname, "r");
+
+	if (NULL == f) {
+		return NULL;
+	}
+
+	while (num_tokens < UINT_MAX) {
+		/* set a canary to know when we didn't finish on a newline */
+		if (NULL == fgets(buf, sizeof(buf), f))
+			break;
+
+		size_t length = strlen(buf);
+
+		if (0 == length)
+			continue;
+
+		if ('\n' != buf[length-1]) {
+			msyslog(LOG_ERR, "CONFIG: auth token with excess length of %d characters", (int)sizeof(buf)-2);
+			break;
+		}
+
+		buf[length-1] = '\0';
+		string_node *cur_token = create_string_node(estrdup(buf));
+
+		LINK_FIFO(tokens, cur_token, link);
+		num_tokens++;
+	}
+
+	if (!feof(f))
+		msyslog(LOG_ERR, "CONFIG: not all auth tokens processed");
+
+	msyslog(LOG_INFO, "CONFIG: Read %u NTS pool auth tokens from %s", num_tokens, fname);
+
+	(void) fclose(f);
+
+	return HEAD_FIFO(tokens);
+}
+
 static void
 config_nts(
 	config_tree *ptree
@@ -2015,6 +2064,10 @@ config_nts(
 		case T_Tlsecdhcurves:
 			free((void *)(intptr_t)ntsconfig.tlsecdhcurves);
 			ntsconfig.tlsecdhcurves = estrdup(nts->value.s);
+			break;
+		case T_PoolAuthToken:
+			string_node *tokens = read_tokens_from_file(nts->value.s);
+			APPEND_G_FIFO(ntsconfig.authtokens, tokens);
 			break;
 #endif
 		}
