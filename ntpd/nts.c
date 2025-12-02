@@ -44,6 +44,7 @@ struct ntsconfig_t ntsconfig = {
 	.ca = NULL,
 	.aead = NULL,
 	.tlscipherserverpreference = false,
+	.authtokens = NULL,
 };
 
 void nts_log_version(void);
