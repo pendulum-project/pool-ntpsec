@@ -164,6 +164,7 @@ struct ntsconfig_t {
 	const char *ca;		/* root cert dir/file */
 	const char *aead;	/* AEAD algorithms on wire */
 	bool tlscipherserverpreference;  /* OpenSSL 3.0 default is client */
+	struct string_node_tag *authtokens; /* NTS-pool auth tokens */
 };
 
 

@@ -178,6 +178,7 @@
 %token	<Integer>	T_Pid
 %token	<Integer>	T_Pidfile
 %token	<Integer>	T_Pool
+%token	<Integer>	T_PoolAuthToken
 %token	<Integer>	T_Port
 %token	<Integer>	T_Ppspath
 %token	<Integer>	T_Prefer
@@ -1190,6 +1191,7 @@ nts_string_option_keyword
 	|	T_Mintls
 	|	T_Tlsciphersuites
 	|	T_Tlsecdhcurves
+	|	T_PoolAuthToken
 	;
 
 nts_number_option_keyword
