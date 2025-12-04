@@ -17,6 +17,7 @@
 #include <sys/resource.h>
 
 #include <openssl/ssl.h>
+#include <openssl/crypto.h>
 #include <openssl/err.h>
 #include <openssl/x509.h>
 
@@ -746,21 +747,6 @@ void nts_ke_pool_status_send(struct BufCtl_t *buf) {
 	ke_append_record_null(buf, NTS_CRITICAL+nts_end_of_message);
 }
 
-/* A constant time memcmp, so that we don't like timing information
- * related to the authentication token; the only thing that can leak through
- * a side channel is the length of the authentication token;
- * taken from: https://github.com/squell/dunsel/blob/master/consttime/memcmp.c
- * with permission. */
-static int memcmp_consttime(const void *s1, const void *s2, size_t n) {
-	unsigned const char *p1 = s1, *p2 = s2;
-	int r = 0;
-	while (n--) {
-		int delta = p1[n] - p2[n];
-		r = (r & ~-delta) | delta;
-	}
-	return r;
-}
-
 static bool nts_ke_pool_authenticated(struct BufCtl_t *auth_token) {
 	if (!auth_token->next)
 		return false;
@@ -768,7 +754,7 @@ static bool nts_ke_pool_authenticated(struct BufCtl_t *auth_token) {
         string_node *secret = ntsconfig.authtokens;
 	for ( ; secret; secret = secret->link) {
 		if ((size_t)auth_token->left == strlen(secret->s) &&
-		   (0 == memcmp_consttime(secret->s, auth_token->next, auth_token->left)))
+		   (0 == CRYPTO_memcmp(secret->s, auth_token->next, auth_token->left)))
 			return true;
 	}
 
