@@ -12,6 +12,13 @@
 /* Hack to keep linker happy */
 uint16_t extra_port = 0;
 
+/* Match definition in nts_server.c */
+struct pool_query {
+        bool list;
+        struct BufCtl_t fixed_key;
+        struct BufCtl_t auth_token;
+};
+
 TEST_GROUP(nts_server);
 
 TEST_SETUP(nts_server) {}
@@ -103,6 +110,59 @@ TEST(nts_server, nts_ke_process_receive) {
 	/* test */
 	success = nts_ke_process_receive(&buf, &aead, NULL);
 	TEST_ASSERT_EQUAL(false, success);
+#ifdef POOL_SOURCE
+	/* ===== Test: query nts pool records ===== */
+	struct pool_query pq;
+	memset(&pq, 0, sizeof(pq));
+	uint8_t buf8[] = {
+		0xC0, nts_auth_token & 0xFF, 0, 32,
+		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+		0xC0, nts_supported_protocol & 0xFF, 0, 0,
+		0xC0, nts_supported_algorithm & 0xFF, 0, 0,
+		0x80, nts_end_of_message, 0, 0,
+	};
+	buf.next = buf8;
+	buf.left = sizeof(buf8);
+	/* test */
+	success = nts_ke_process_receive(&buf, &aead, &pq);
+	TEST_ASSERT_EQUAL(true, success);
+	TEST_ASSERT_TRUE(pq.list);
+	TEST_ASSERT_FALSE(pq.fixed_key.next);
+	TEST_ASSERT_EQUAL_INT(pq.auth_token.left, 32);
+	TEST_ASSERT_EQUAL_UINT8_ARRAY(pq.auth_token.next, "abcdefghabcdefghabcdefghabcdefgh", 32);
+	/* ===== Test: set fixed key ===== */
+	memset(&pq, 0, sizeof(pq));
+	uint8_t buf9[] = {
+		0xC0, nts_auth_token & 0xFF, 0, 32,
+		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+		0x80, nts_next_protocol_negotiation, 0, 2, 0x00, nts_protocol_NTP,
+		0x80, nts_algorithm_negotiation, 0, 2, 0x00, AEAD_AES_SIV_CMAC_256,
+		0xC0, nts_fixed_key_request & 0xFF, 0, 32,
+		'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+		'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+		'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+		'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+		0x80, nts_end_of_message, 0, 0,
+	};
+	buf.next = buf9;
+	buf.left = sizeof(buf9);
+	/* test */
+	success = nts_ke_process_receive(&buf, &aead, &pq);
+	TEST_ASSERT_EQUAL(true, success);
+	TEST_ASSERT_FALSE(pq.list);
+	TEST_ASSERT_TRUE(pq.auth_token.next);
+	TEST_ASSERT_EQUAL_INT(pq.auth_token.left, 32);
+	TEST_ASSERT_EQUAL_UINT8_ARRAY(pq.auth_token.next, "abcdefghabcdefghabcdefghabcdefgh", 32);
+	TEST_ASSERT_TRUE(pq.fixed_key.next);
+	TEST_ASSERT_EQUAL_INT(pq.fixed_key.left, 32);
+	TEST_ASSERT_EQUAL_UINT8_ARRAY(pq.fixed_key.next, "ABCDEFGHABCDEFGHABCDEFGHABCDEFGH", 32);
+#endif
 }
 
 TEST_GROUP_RUNNER(nts_server) {
