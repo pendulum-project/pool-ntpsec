@@ -4,7 +4,7 @@ The following command controls NTS authentication. It overrides
 normal TLS protocol negotiation, which is not usually necessary.
 
 [[nts]]
-+nts+ [enable|disable] [+mintls+ _version_] [+maxtls+ _version_] [+tlsciphersuites+ _name_] [+port+ _portnum_] [+tlsecdhcurves+ _name_] [tlscipherserverpreference]
++nts+ [enable|disable] [+mintls+ _version_] [+maxtls+ _version_] [+tlsciphersuites+ _name_] [+port+ _portnum_] [+tlsecdhcurves+ _name_] [+poolauth+ _file_] [tlscipherserverpreference]
 
 The options are as follows:
 
@@ -55,6 +55,16 @@ The options are as follows:
   your firewall doesn't block traffic arriving on this new port.
   It will also be used as the return port when sending requests.
   Again, that bypasses blocking on port 123.
+
++poolauth+ _file_::
+  Provide a file that contains the tokens that a client must present to use
+  the NTS Pool Extensions. The format of this file is a text file where each
+  line contains a token as an ASCII string. Providing such tokens allows a
+  client that presents a listed token to the NTS-KE to perform additional actions
+  such as querying the support cipher suites, and prescribe the keys to be used
+  for NTS instead of extracting them from the TLS connection. This would typically
+  only be used for known clients that are a NTS Load Balancing KE (KE-LB).
+  Not using this option disables the NTS Pool Extensions.
 
 // https://crypto.stackexchange.com/questions/8964/sending-tls-messages-with-out-encryption-using-openssl-code
 
