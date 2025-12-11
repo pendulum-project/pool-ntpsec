@@ -41,6 +41,11 @@ Network Time Security is described by
 link:https://tools.ietf.org/html/rfc8915[RFC 8915: Network Time Security for
 the Network Time Protocol].
 
+This NTPsec version also has support for the proposed NTS pool KE extensions,
+which are described by
+link:https://datatracker.ietf.org/doc/draft-venhoek-nts-pool/[
+draft-venhoek-nts-pool-04: NTS extensions for enabling pools ]
+
 [[against5905]]
 == Divergences from RFC 5905
 
