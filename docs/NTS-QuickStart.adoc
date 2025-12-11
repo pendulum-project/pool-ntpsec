@@ -21,6 +21,7 @@ include::includes/hand.adoc[]
 * link:#client[NTS Client Configuration]
 * link:#server[NTS Server Configuration]
 * link:#verify[Verification]
+* link:#pool[NTS Pool Extensions]
 * link:#refer[References]
 
 '''''
@@ -271,6 +272,38 @@ NTS KE serves_bad:           56
 ------------------------------------------------------------
 
 
+[[pool]]
+== [NTS Pool Extensions
+This version of NTPsec has support for experimental NTS pool extensions.
+
+To enable this, in addition to enabling NTS mode, you will only need to provide authentication tokens,
+for example:
+
+------------------------------------------------------------
+nts poolauth /var/lib/ntp/pool-tokens
+------------------------------------------------------------
+
+The file `/var/lib/ntp/pool-tokens` would need to be populated with the tokens that are agreed upon
+ahead of time with the NTS Pool Load Balancing KE (KE-LB). This will give the KE-LB control
+of the keys used to secure time synchronization, and act as a controlled "KE-in-the-middle" that sits
+between clients that want to synchronize time using NTS, and a time source that is being hooked up to NTPsec.
+
+The file format is simply a text file with each line containing an ASCII string. How to communicate
+a token is out of scope of this document, and should be communicated clearly by the NTS pool operator.
+
+Ordinary clients (that are not KE-LB's) should not present such tokens, and no tokens for them must be
+agreed up on or configured. If they would be listed here, they would be able to degrade the security of
+their time synchronization.
+
+It is typically assumed that the KE-LB is itself generating the keys using a normal NTS Key Exchange,
+that is, extracted from a secure TLS connection with a single client; i.e. setting an authentication
+token is a delegation of trust for that aspect (and only that aspect) of the NTS key exchange.
+
+The bearer of a valid authentication token is also able to query the supported protocols and cipher
+suites of the server, which could be used for fingerprinting.
+
+Authentication tokens do not confer other privileges to the client to the ones listed above.
+
 [[refer]]
 == References
 
@@ -279,6 +312,7 @@ NTS KE serves_bad:           56
 * https://developers.cloudflare.com/time-services/nts/usage/[Cloudflare Public NTS Servers]
 * https://www.netnod.se/blog/what-network-time-security-and-why-it-important[Netnod NTS Service]
 * https://datatracker.ietf.org/meeting/106/materials/slides-106-ntp-nts-deployment-03.pdf[Deployment Review]
+* https://datatracker.ietf.org/doc/draft-venhoek-nts-pool/[NTS extensions for enabling pools]
 
 '''''
 
