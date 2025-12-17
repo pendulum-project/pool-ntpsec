@@ -282,8 +282,14 @@ def configure(ctx):
     if ret:
         ctx.env.LDFLAGS += ["-lssp_nonshared"]
 
-    # FIXME
-    ctx.env.LDFLAGS += ["-lgetdns"]
+    # -lgetdns is necessary for SRV support
+    ret = ctx.check_cc(lib="getdns", mandatory=False,
+                       comment="DNSSEC library")
+    if ret:
+        ctx.define("SRV_LOOKUP", 1,
+                   comment="Enable SRV lookups")
+        ctx.env.SRV_LOOKUP = True
+        ctx.env.LDFLAGS += ["-lgetdns"]
 
     cc_test_flags = [
         ('PIC', '-fPIC'),
