@@ -863,10 +863,8 @@ const char *nts_query_srv(char (*server)[256]) {
         if (0 != getdns_dict_set_int(exts, "dnssec_return_only_secure", GETDNS_EXTENSION_TRUE))
 		goto exit_ctx;
 
-	const char *kludge_server = "sidn.nl"; //FIXME
-
 	char srv_name[256] = { "_" SRV_SERVICE_NAME "._tcp." };
-	strncat(srv_name, kludge_server, sizeof(srv_name) - 1 - strlen(srv_name));
+	strncat(srv_name, *server, sizeof(srv_name) - 1 - strlen(srv_name));
 	if (0 != getdns_service_sync(ctx, srv_name, exts, &resp)) {
 		msyslog(LOG_DEBUG, "NTSsrv: could not query DNSSEC for %s", srv_name);
 		goto exit_exts;
@@ -893,9 +891,6 @@ const char *nts_query_srv(char (*server)[256]) {
 	}
 
 	msyslog(LOG_INFO, "NTSsrv: redirecting to server %s", dns_name);
-
-	free(dns_name), dns_name = strdup(*server); //FIXME
-	msyslog(LOG_INFO, "NTSsrv: but really using server %s", dns_name);
 
 	strcpy(*server, dns_name);
 	free(dns_name);
