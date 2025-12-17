@@ -334,10 +334,12 @@ int open_TCP_socket(struct peer *peer, const char *hostname) {
 	}
 
 #if SRV_LOOKUP
-	if (NULL == nts_query_srv(&host))
-		msyslog(LOG_INFO, "NTSsrv: SRV resolution failed for %s, trying NTS-KE", host);
-	else
-		msyslog(LOG_INFO, "NTSsrv: SRV record resolved to %s", host);
+	if (peer->cfg.flags & FLAG_SRV) {
+		if (NULL == nts_query_srv(&host))
+			msyslog(LOG_INFO, "NTSsrv: SRV resolution failed for %s, trying NTS-KE", host);
+		else
+			msyslog(LOG_INFO, "NTSsrv: SRV record resolved to %s", host);
+	}
 #endif
 
 	ZERO(hints);

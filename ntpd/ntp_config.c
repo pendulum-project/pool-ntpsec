@@ -618,6 +618,19 @@ create_peer_node(
 				break;
 #endif
 
+			case T_Srv:
+#ifdef DISABLE_NTS
+				msyslog(LOG_ERR, "CONFIG: nts not supported");
+				exit(1);
+#else
+				if ((my_node->ctl.flags & FLAG_NTS) == 0) {
+					msyslog(LOG_ERR, "CONFIG: srv lookup can only be used in combination with nts");
+					exit(1);
+				}
+				my_node->ctl.flags |= FLAG_SRV;
+				break;
+#endif
+
 			case T_Prefer:
 				my_node->ctl.flags |= FLAG_PREFER;
 				break;
