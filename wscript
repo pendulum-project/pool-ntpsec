@@ -283,6 +283,9 @@ def configure(ctx):
     if ret:
         ctx.env.LDFLAGS += ["-lssp_nonshared"]
 
+    # FIXME
+    ctx.env.LDFLAGS += ["-lgetdns"]
+
     cc_test_flags = [
         ('PIC', '-fPIC'),
         ('PIE', '-pie -fPIE'),
