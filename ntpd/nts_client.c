@@ -34,6 +34,12 @@
 #include "ntp_stdlib.h"
 #include "timespecops.h"
 
+#define SRV_LOOKUP 1
+
+#if SRV_LOOKUP
+#include <getdns/getdns.h>
+#endif
+
 SSL_CTX* make_ssl_client_ctx(const char *filename);
 int open_TCP_socket(struct peer *peer, const char *hostname);
 struct addrinfo * find_best_addr(struct addrinfo *answer);
@@ -47,6 +53,9 @@ bool nts_client_send_request_core(uint8_t *buff, int buf_size, int *used, struct
 bool nts_client_process_response(SSL *ssl, struct peer *peer);
 bool nts_client_process_response_core(uint8_t *buff, int transferred, struct peer* peer);
 bool nts_server_lookup(char *server, sockaddr_u *addr, int af);
+#if SRV_LOOKUP
+const char *nts_query_srv(char (*server)[256]);
+#endif
 
 static SSL_CTX *client_ctx = NULL;
 
@@ -267,6 +276,13 @@ int open_TCP_socket(struct peer *peer, const char *hostname) {
 		*tmp++ = 0;
 		strlcpy(port, tmp, sizeof(port));
 	}
+
+#if SRV_LOOKUP
+	if (NULL == nts_query_srv(&host))
+		msyslog(LOG_INFO, "NTSsrv: SRV resolution failed for %s, trying NTS-KE", host);
+	else
+		msyslog(LOG_INFO, "NTSsrv: SRV record resolved to %s", host);
+#endif
 
 	ZERO(hints);
 	hints.ai_protocol = IPPROTO_TCP;
@@ -826,5 +842,74 @@ bool nts_server_lookup(char *server, sockaddr_u *addr, int af) {
 
 	return true;
 }
+
+#if SRV_LOOKUP
+#define SRV_SERVICE_NAME "ntske"
+
+/* This is the SRV-based server lookup to be described in a future spec */
+const char *nts_query_srv(char (*server)[256]) {
+	getdns_context *ctx = NULL;
+	getdns_dict *exts = NULL;
+	getdns_dict *resp = NULL;
+	char *dns_name = NULL;
+
+	if (0 != getdns_context_create(&ctx, 1))
+		goto exit;
+
+	exts = getdns_dict_create();
+	if (NULL == exts)
+		goto exit_ctx;
+
+        if (0 != getdns_dict_set_int(exts, "dnssec_return_only_secure", GETDNS_EXTENSION_TRUE))
+		goto exit_ctx;
+
+	const char *kludge_server = "sidn.nl"; //FIXME
+
+	char srv_name[256] = { "_" SRV_SERVICE_NAME "._tcp." };
+	strncat(srv_name, kludge_server, sizeof(srv_name) - 1 - strlen(srv_name));
+	if (0 != getdns_service_sync(ctx, srv_name, exts, &resp)) {
+		msyslog(LOG_DEBUG, "NTSsrv: could not query DNSSEC for %s", srv_name);
+		goto exit_exts;
+	}
+
+	getdns_bindata *srv_addr;
+	if (0 != getdns_dict_get_bindata(resp, "/srv_addresses/0/domain_name", &srv_addr)) {
+		msyslog(LOG_DEBUG, "NTSsrv: DNSSEC provided no SRV records for %s", srv_name);
+		goto exit_resp;
+	}
+
+	if (0 != getdns_convert_dns_name_to_fqdn(srv_addr, &dns_name)) {
+		msyslog(LOG_ERR, "NTSsrv: DNSSEC for %s contains invalid SRV records", srv_name);
+		goto exit_resp;
+	}
+
+	size_t dns_len = strlen(dns_name);
+	if (dns_len <= 1 || dns_len > 255) {
+		msyslog(LOG_ERR, "NTSsrv: DNSSEC for %s contains invalid SRV records", srv_name);
+		/* don't provide nonsense answers to the caller */
+		free(dns_name);
+		dns_name = NULL;
+		goto exit_resp;
+	}
+
+	msyslog(LOG_INFO, "NTSsrv: redirecting to server %s", dns_name);
+
+	free(dns_name), dns_name = strdup(*server); //FIXME
+	msyslog(LOG_INFO, "NTSsrv: but really using server %s", dns_name);
+
+	strcpy(*server, dns_name);
+	free(dns_name);
+	dns_name = *server;
+
+exit_resp:
+	getdns_dict_destroy(resp);
+exit_exts:
+	getdns_dict_destroy(exts);
+exit_ctx:
+	getdns_context_destroy(ctx);
+exit:
+	return dns_name;
+}
+#endif
 
 /* end */
