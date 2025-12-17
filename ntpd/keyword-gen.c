@@ -91,6 +91,7 @@ struct key_tok ntp_keywords[] = {
 { "prefer",		T_Prefer,		FOLLBY_TOKEN },
 { "subtype",		T_Subtype,		FOLLBY_TOKEN },
 { "version",		T_Version,		FOLLBY_TOKEN },
+{ "srv",		T_Srv,			FOLLBY_TOKEN },
 /*** MONITORING COMMANDS ***/
 /* stat */
 { "clockstats",		T_Clockstats,		FOLLBY_TOKEN },

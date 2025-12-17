@@ -166,6 +166,7 @@
 %token	<Integer>	T_Ntpport
 %token	<Integer>	T_NtpSignDsocket
 %token	<Integer>	T_Nts
+%token	<Integer>	T_Srv
 %token	<Integer>	T_Ntsstats
 %token	<Integer>	T_Ntskestats
 %token	<Integer>	T_Orphan
@@ -429,6 +430,7 @@ option_flag_keyword
 	|	T_Noselect
 	|	T_Noval
 	|	T_Nts
+	|	T_Srv
 	|	T_Prefer
 	|	T_True
 	;
