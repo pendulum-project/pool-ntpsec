@@ -38,9 +38,7 @@
 #include "ntp_stdlib.h"
 #include "timespecops.h"
 
-#define SRV_LOOKUP 1
-
-#if SRV_LOOKUP
+#ifdef SRV_LOOKUP
 #include <getdns/getdns.h>
 #endif
 
@@ -57,7 +55,7 @@ bool nts_client_send_request_core(uint8_t *buff, int buf_size, int *used, struct
 bool nts_client_process_response(SSL *ssl, struct peer *peer);
 bool nts_client_process_response_core(uint8_t *buff, int transferred, struct peer* peer);
 bool nts_server_lookup(char *server, sockaddr_u *addr, int af);
-#if SRV_LOOKUP
+#ifdef SRV_LOOKUP
 const char *nts_query_srv(char (*server)[256]);
 #endif
 
@@ -333,7 +331,7 @@ int open_TCP_socket(struct peer *peer, const char *hostname) {
 		msyslog(LOG_INFO, "NTSc: open_TCP_socket: found port %s", port);
 	}
 
-#if SRV_LOOKUP
+#ifdef SRV_LOOKUP
 	if (peer->cfg.flags & FLAG_SRV) {
 		if (NULL == nts_query_srv(&host))
 			msyslog(LOG_INFO, "NTSsrv: SRV resolution failed for %s, trying NTS-KE", host);
@@ -943,7 +941,7 @@ bool nts_server_lookup(char *server, sockaddr_u *addr, int af) {
 	return true;
 }
 
-#if SRV_LOOKUP
+#ifdef SRV_LOOKUP
 #define SRV_SERVICE_NAME "ntske"
 
 /* This is the SRV-based server lookup to be described in a future spec */
