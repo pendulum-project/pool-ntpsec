@@ -77,6 +77,10 @@ your OS/distro's root certificate collection.
 
 NetBSD needs the +mozilla-rootcerts-openssl+ package and `ca /etc/openssl/certs/` added to the +server+ line.
 
+To use a NTS source via the experimental SRV-based NTS pool, append the keyword `srv` to the server
+line after the `nts` keyword. If SRV lookup succeeded, `ntpd` will connect with the selected time source and
+ignore the port number given in the configuration.
+
 Restart `ntpd`, and skip to link:#verify[Verification], below.
 
 [[server]]
