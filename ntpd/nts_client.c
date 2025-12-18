@@ -56,7 +56,7 @@ bool nts_client_process_response(SSL *ssl, struct peer *peer);
 bool nts_client_process_response_core(uint8_t *buff, int transferred, struct peer* peer);
 bool nts_server_lookup(char *server, sockaddr_u *addr, int af);
 #ifdef SRV_LOOKUP
-const char *nts_query_srv(char (*server)[256]);
+bool nts_query_srv(char (*server)[256], char (*port)[32]);
 #endif
 
 static SSL_CTX *client_ctx = NULL;
@@ -333,10 +333,11 @@ int open_TCP_socket(struct peer *peer, const char *hostname) {
 
 #ifdef SRV_LOOKUP
 	if (peer->cfg.flags & FLAG_SRV) {
-		if (NULL == nts_query_srv(&host))
+		if (!nts_query_srv(&host, &port))
 			msyslog(LOG_INFO, "NTSsrv: SRV resolution failed for %s, trying NTS-KE", host);
-		else
-			msyslog(LOG_INFO, "NTSsrv: SRV record resolved to %s", host);
+		else {
+			msyslog(LOG_INFO, "NTSsrv: SRV record resolved to %s:%s", host, port);
+		}
 	}
 #endif
 
@@ -945,7 +946,7 @@ bool nts_server_lookup(char *server, sockaddr_u *addr, int af) {
 #define SRV_SERVICE_NAME "ntske"
 
 /* This is the SRV-based server lookup to be described in a future spec */
-const char *nts_query_srv(char (*server)[256]) {
+bool nts_query_srv(char (*server)[256], char (*port)[32]) {
 	getdns_context *ctx = NULL;
 	getdns_dict *exts = NULL;
 	getdns_dict *resp = NULL;
@@ -969,6 +970,7 @@ const char *nts_query_srv(char (*server)[256]) {
 	}
 
 	getdns_bindata *srv_addr;
+	uint32_t srv_port;
 	if (0 != getdns_dict_get_bindata(resp, "/srv_addresses/0/domain_name", &srv_addr)) {
 		msyslog(LOG_DEBUG, "NTSsrv: DNSSEC provided no SRV records for %s", srv_name);
 		goto exit_resp;
@@ -977,6 +979,11 @@ const char *nts_query_srv(char (*server)[256]) {
 	if (0 != getdns_convert_dns_name_to_fqdn(srv_addr, &dns_name)) {
 		msyslog(LOG_ERR, "NTSsrv: DNSSEC for %s contains invalid SRV records", srv_name);
 		goto exit_resp;
+	}
+	if (0 != getdns_dict_get_int(resp, "/srv_addresses/0/domain_name", &srv_port) || srv_port > 0xFFFF) {
+		msyslog(LOG_WARNING, "NTSsrv: DNSSEC did not specify a proper port for %s", dns_name);
+	} else {
+		sprintf(*port, "%d", (int)srv_port);
 	}
 
 	size_t dns_len = strlen(dns_name);
@@ -1001,7 +1008,7 @@ exit_exts:
 exit_ctx:
 	getdns_context_destroy(ctx);
 exit:
-	return dns_name;
+	return dns_name != NULL;
 }
 #endif
 
