@@ -404,16 +404,22 @@ bool connect_TCP_socket(int sockfd, struct addrinfo *addr) {
 
 void set_hostname(SSL *ssl, const char *hostname) {
 	char host[256], *tmp;
-
-	/* chop off trailing :port */
 	strlcpy(host, hostname, sizeof(host));
-	tmp = strchr(host, ']');
-	if (NULL == tmp) {
-		tmp = host;			/* not IPv6 [...] format */
-	}
-	tmp = strchr(tmp, ':');
-	if (NULL != tmp) {
-		*tmp = 0;
+
+	tmp = strchr(host, 0);
+	if (tmp != host && tmp[-1] == '.') {
+		/* chop off trailing . if hostname was an absolute DNS name */
+		tmp[-1] = 0;
+	} else {
+		/* chop off trailing :port */
+		tmp = strchr(host, ']');
+		if (NULL == tmp) {
+			tmp = host;			/* not IPv6 [...] format */
+		}
+		tmp = strchr(tmp, ':');
+		if (NULL != tmp) {
+			*tmp = 0;
+		}
 	}
 
 /* https://wiki.openssl.org/index.php/Hostname_validation
