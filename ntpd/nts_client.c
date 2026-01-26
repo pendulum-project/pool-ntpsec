@@ -963,7 +963,8 @@ bool nts_query_srv(char (*server)[256], char (*port)[32]) {
 		goto exit_ctx;
 
 	char srv_name[256] = { "_" SRV_SERVICE_NAME "._tcp." };
-	strncat(srv_name, *server, sizeof(srv_name) - 1 - strlen(srv_name));
+	strlcat(srv_name, *server, sizeof(srv_name));
+
 	if (0 != getdns_service_sync(ctx, srv_name, exts, &resp)) {
 		msyslog(LOG_DEBUG, "NTSsrv: could not query DNSSEC for %s", srv_name);
 		goto exit_exts;
