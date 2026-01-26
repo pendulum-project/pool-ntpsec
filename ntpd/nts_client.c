@@ -500,6 +500,11 @@ void set_hostname(SSL *ssl, const char *hostname) {
 	  if (NULL != tmp) {
 	    *tmp = 0;
 	  }
+	  /* chop off trailing . if hostname was an absolute DNS name */
+	  tmp = strchr(host, 0);
+	  if (tmp != host && tmp[-1] == '.') {
+	    tmp[-1] = 0;
+	  }
 	}
 
 /* https://wiki.openssl.org/index.php/Hostname_validation
