@@ -39,7 +39,7 @@
 #endif
 
 SSL_CTX* make_ssl_client_ctx(const char *filename);
-int open_TCP_socket(struct peer *peer, const char *hostname);
+int open_TCP_socket(struct peer *peer, char (*host)[256]);
 struct addrinfo * find_best_addr(struct addrinfo *answer);
 bool connect_TCP_socket(int sockfd, struct addrinfo *addr);
 bool nts_set_cert_search(SSL_CTX *ctx, const char *filename);
@@ -73,8 +73,7 @@ bool nts_client_init(void) {
 
 bool nts_probe(struct peer * peer) {
 	struct timeval timeout = {.tv_sec = NTS_KE_TIMEOUT, .tv_usec = 0};
-	const char *hostname = peer->hostname;
-	char hostbuf[100];
+	char hostname[256];
 	char errbuf[100];
 	SSL     *ssl;
 	int      server;
@@ -87,23 +86,25 @@ bool nts_probe(struct peer * peer) {
 	addrOK = false;
 	clock_gettime(CLOCK_MONOTONIC, &start);
 
-	if (NULL == hostname) {
+	if (NULL == peer->hostname) {
 		/* IP Address case */
 		int af = AF(&peer->srcadr);
 		switch (af) {
 		    case AF_INET:
-			inet_ntop(af, PSOCK_ADDR4(&peer->srcadr), hostbuf, sizeof(hostbuf));
+			inet_ntop(af, PSOCK_ADDR4(&peer->srcadr), hostname, sizeof(hostname));
 			break;
 		    case AF_INET6:
-			inet_ntop(af, PSOCK_ADDR6(&peer->srcadr), hostbuf, sizeof(hostbuf));
+			inet_ntop(af, PSOCK_ADDR6(&peer->srcadr), hostname, sizeof(hostname));
 			break;
 		    default:
 			return false;
 		}
-		hostname = hostbuf;
-	}
+	} else {
+            /* FIXME -- const bug in OpenSSL */
+            strlcpy(hostname, peer->hostname, sizeof(hostname));
+        }
 
-	server = open_TCP_socket(peer, hostname);
+	server = open_TCP_socket(peer, &hostname);
 	if (-1 == server) {
 		ntske_cnt.probes_bad++;
 		return false;
@@ -245,8 +246,8 @@ SSL_CTX* make_ssl_client_ctx(const char * filename) {
 }
 
 /* return -1 on error */
-int open_TCP_socket(struct peer *peer, const char *hostname) {
-	char host[256], port[32];
+int open_TCP_socket(struct peer *peer, char (*hostname)[256]) {
+	char *host = *hostname, port[32];
 	char errbuf[100];
 	char *tmp;
 	struct addrinfo hints;
@@ -254,9 +255,6 @@ int open_TCP_socket(struct peer *peer, const char *hostname) {
 	int gai_rc;
 	int sockfd;
 	struct timespec start, finish;
-
-	/* copy avoids dancing around const warnings */
-	strlcpy(host, hostname, sizeof(host));
 
 	/* handle xxx:port case */
 	tmp = strchr(host, ']');
@@ -277,7 +275,7 @@ int open_TCP_socket(struct peer *peer, const char *hostname) {
 
 #ifdef SRV_LOOKUP
 	if (peer->cfg.flags & FLAG_SRV) {
-		if (!nts_query_srv(&host, &port))
+		if (!nts_query_srv(hostname, &port))
 			msyslog(LOG_INFO, "NTSsrv: SRV resolution failed for %s, trying NTS-KE", host);
 		else {
 			msyslog(LOG_INFO, "NTSsrv: SRV record resolved to %s:%s", host, port);
@@ -293,13 +291,13 @@ int open_TCP_socket(struct peer *peer, const char *hostname) {
 	gai_rc = getaddrinfo(host, port, &hints, &answer);
 	if (0 != gai_rc) {
 		msyslog(LOG_INFO, "NTSc: open_TCP_socket: DNS error trying to contact %s: %d, %s",
-			hostname, gai_rc, gai_strerror(gai_rc));
+			host, gai_rc, gai_strerror(gai_rc));
 		return -1;
 	}
 	clock_gettime(CLOCK_MONOTONIC, &finish);
 	finish = sub_tspec(finish, start);
 	msyslog(LOG_INFO, "NTSc: DNS lookup of %s took %.3f sec",
-		hostname, tspec_to_d(finish));
+		host, tspec_to_d(finish));
 
 	/* Use first answer
 	 * sockaddr is global for NTP address
