@@ -190,13 +190,13 @@ enum nts_record_type {
 	nts_port_negotiation = 7,
 
 	/* NTS pool extension */
-	nts_keep_alive = 0x4000,
-	nts_supported_protocol = 0x4004, /* CRITICAL */
-	nts_supported_algorithm = 0x4001, /* CRITICAL */
-	nts_list_server_names = 0x4006, /* CRITICAL */
-	nts_fixed_key_request = 0x4002, /* CRITICAL */
-	nts_server_deny = 0x4003,
-	nts_auth_token = 0x4005,
+	nts_keep_alive = 8,
+	nts_supported_protocol = 9, /* CRITICAL */
+	nts_supported_algorithm = 10, /* CRITICAL */
+	nts_list_server_names = 11, /* CRITICAL */
+	nts_fixed_key_request = 12, /* CRITICAL */
+	nts_server_deny = 13,
+	nts_auth_token = 14,
 };
 
 enum nts_protocol_type {
