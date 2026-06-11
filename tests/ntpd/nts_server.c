@@ -115,13 +115,13 @@ TEST(nts_server, nts_ke_process_receive) {
 	struct pool_query pq;
 	memset(&pq, 0, sizeof(pq));
 	uint8_t buf8[] = {
-		0xC0, nts_auth_token & 0xFF, 0, 32,
+		0x80, nts_auth_token, 0, 32,
 		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
 		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
 		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
 		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
-		0xC0, nts_supported_protocol & 0xFF, 0, 0,
-		0xC0, nts_supported_algorithm & 0xFF, 0, 0,
+		0x80, nts_supported_protocol, 0, 0,
+		0x80, nts_supported_algorithm, 0, 0,
 		0x80, nts_end_of_message, 0, 0,
 	};
 	buf.next = buf8;
@@ -136,14 +136,14 @@ TEST(nts_server, nts_ke_process_receive) {
 	/* ===== Test: set fixed key ===== */
 	memset(&pq, 0, sizeof(pq));
 	uint8_t buf9[] = {
-		0xC0, nts_auth_token & 0xFF, 0, 32,
+		0x80, nts_auth_token, 0, 32,
 		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
 		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
 		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
 		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
 		0x80, nts_next_protocol_negotiation, 0, 2, 0x00, nts_protocol_NTP,
 		0x80, nts_algorithm_negotiation, 0, 2, 0x00, AEAD_AES_SIV_CMAC_256,
-		0xC0, nts_fixed_key_request & 0xFF, 0, 32,
+		0x80, nts_fixed_key_request, 0, 32,
 		'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
 		'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
 		'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
